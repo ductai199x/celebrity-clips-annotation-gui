@@ -1,5 +1,7 @@
 import os
 import cv2
+import re
+import decord
 import pandas as pd
 import threading
 import PySimpleGUI as sg
@@ -62,20 +64,26 @@ class ClipAnnotationGUI:
             "Clip Annotation Tools",
             self.layout,
             element_justification="center",
-            use_default_focus=False,
+            use_default_focus=True,
             finalize=True,
             resizable=True,
         )
 
         self.full_file_list = []
         self.video_cap = None
+        self.video_res = None
+        self.video_yt_id = None
+        self.video_frame_range = None
         self.video_buffer = None
         self.video_buffer_idx = None
         self.annotation_file = None
         self.annokey_to_elmkey = {
             "file_name": "-ANNO_FILE_NAME-",
-            "res_x": "-ANNO_RES_X-",
-            "res_y": "-ANNO_RES_Y-",
+            "celeb_name": "-ANNO_CELEB_NAME-",
+            "youtube_id": "-ANNO_YT_ID-",
+            "frame_range": "-ANNO_FRAME_RANGE-",
+            "res_w": "-ANNO_RES_W-",
+            "res_h": "-ANNO_RES_H-",
             "is_watermarked": "-ANNO_WATERMARK-",
             "is_pristine": "-ANNO_PRISTINE-",
             "chop_begin": "-ANNO_CHOP_BEGIN-",
@@ -103,53 +111,62 @@ class ClipAnnotationGUI:
                     file_list = []
                 self.full_file_list = file_list
                 self.window["-FILE_LIST-"].update(self.full_file_list)
+
             elif self.event == "-FILTER_FILE_LIST-" or self.event == "-FILTER_FILE_LIST_BTN-":
                 filter_str = self.values["-FILTER_FILE_LIST-"]
                 if filter_str is None:
                     filter_str = ""
                 filtered_list = list(filter(lambda s: filter_str in s, self.full_file_list))
                 self.window["-FILE_LIST-"].update(filtered_list)
-            elif self.event == "-FILE_LIST-":
+
+            elif self.event == "-FILE_LIST-" and len(self.values["-FILE_LIST-"]) > 0:
                 self.window["-VIDEO_PATH-"].update(self.values["-FILE_LIST-"][0])
                 if self.annotation_file is not None:
                     self.load_annotation_entry(self.values["-FILE_LIST-"][0])
+
             elif self.event == "-LOAD_VIDEO_BTN-":
                 threading.Thread(target=self.load_video_into_buffer, daemon=True).start()
+
             elif self.event == "-VIDEO_SLIDER-":
                 if self.video_cap is None or self.video_buffer is None or len(self.video_buffer) == 0:
                     continue
                 frame_idx = int(self.values["-VIDEO_SLIDER-"])
                 self.window["-FRAME_DISPLAY-"].update(data=self.video_buffer[frame_idx])
                 self.window["-SLIDER_VALUE-"].update(f"{self.video_buffer_idx[frame_idx]}")
+
             elif self.event == "-ANNOTATION_FILE_LOC-":
                 try:
-                    self.window["-ANNOTATION_LOG-"].print(
+                    self.print_anno_log(
                         f"[INFO]: Trying to open annotation file at {self.values['-ANNOTATION_FILE_LOC-']}"
                     )
                     self.annotation_file = pd.read_csv(self.values["-ANNOTATION_FILE_LOC-"])
                 except:
                     # create an annotation file
                     fpath = os.path.abspath("./annotations.csv")
-                    self.window["-ANNOTATION_LOG-"].print(
+                    self.print_anno_log(
                         f"[ERROR]: Error opening annotation file. "
                         + f"Creating new annotation file with header at {fpath}"
                     )
                     self.window["-ANNOTATION_FILE_LOC-"].update(fpath)
-                    with open(fpath, "w") as f:
-                        # write the headers
-                        f.write("file_name,res_x,res_y,is_watermarked,is_pristine,chop_begin,chop_end\n")
+                    if not os.path.exists(fpath):
+                        with open(fpath, "w") as f:
+                            # write the headers
+                            f.write(f"{','.join(list(self.annokey_to_elmkey.keys()))}\n")
+                    else:
+                        self.print_anno_log(
+                            f"[ERROR]: Can't overwrite new annotation file at {fpath} because it exists there"
+                        )
                     self.annotation_file = pd.read_csv(fpath)
                 if self.values["-VIDEO_PATH-"] != "":
                     self.load_annotation_entry()
+
             elif self.event == "-ANNO_SUBMIT_BTN-" and self.video_annotations is not None:
                 is_annotation_good = True
                 for k in self.video_annotations:
                     v = self.values[self.annokey_to_elmkey[k]]
                     self.video_annotations[k] = v
                     if v is None or v == "":
-                        self.window["-ANNOTATION_LOG-"].print(
-                            f'[ERROR]: Key {k} cannot have None or "" value.'
-                        )
+                        self.print_anno_log(f'[ERROR]: Key {k} cannot have None or "" value.')
                         is_annotation_good = False
                         break
                 if is_annotation_good:
@@ -162,30 +179,43 @@ class ClipAnnotationGUI:
                         ]
                     ).drop_duplicates("file_name", keep="last")
                     self.annotation_file.to_csv(self.values["-ANNOTATION_FILE_LOC-"], index=False)
+                    self.print_anno_log(f"[SUCCESS]: Entry submitted.")
 
         self.window.close()
 
     def load_annotation_entry(self, path=None):
         path = path if path is not None else self.values["-VIDEO_PATH-"]
         video_file_name = os.path.split(path)[1]
-        self.window["-ANNOTATION_LOG-"].print(
-            f"[INFO]: Searching for the annotations for video {video_file_name}"
-        )
+        self.print_anno_log(f"[INFO]: Searching for the annotations for video {video_file_name}")
         anno = self.annotation_file.loc[self.annotation_file["file_name"] == video_file_name]
-        # print(anno.to_numpy()[0])
+
         if anno is None or len(anno) == 0:
-            self.window["-ANNOTATION_LOG-"].print(
+            self.print_anno_log(
                 f"[WARN]: Annotation for {video_file_name} does not exists. Submit a new entry."
             )
             self.video_annotations = {k: "" for k in self.annokey_to_elmkey}
             for k in self.video_annotations:
                 self.window[self.annokey_to_elmkey[k]].update(self.video_annotations[k])
+
+            celeb_name, yt_id, frame_lobound, frame_upbound, _ = re.findall(
+                r"(^\D*)_(.*)_(\d*)_(\d*)(.mp4$)", video_file_name
+            )[0]
             self.window[self.annokey_to_elmkey["file_name"]].update(video_file_name)
+            self.window[self.annokey_to_elmkey["celeb_name"]].update(celeb_name)
+            self.window[self.annokey_to_elmkey["youtube_id"]].update(yt_id)
+            self.window[self.annokey_to_elmkey["frame_range"]].update(f"{frame_lobound}-{frame_upbound}")
+            self.window[self.annokey_to_elmkey["res_w"]].update(
+                f"{self.video_res[0] if self.video_res is not None else ''}"
+            )
+            self.window[self.annokey_to_elmkey["res_h"]].update(
+                f"{self.video_res[1] if self.video_res is not None else ''}"
+            )
+            self.window[self.annokey_to_elmkey["chop_begin"]].update("-1")
+            self.window[self.annokey_to_elmkey["chop_end"]].update("-1")
+
         else:
             anno = list(anno.to_numpy()[0])
-            self.window["-ANNOTATION_LOG-"].print(
-                f"[INFO]: Annotation for {video_file_name} exists. Entry Loaded."
-            )
+            self.print_anno_log(f"[INFO]: Annotation for {video_file_name} exists. Entry Loaded.")
             self.video_annotations = {k: v for k, v in zip(list(self.annokey_to_elmkey.keys()), anno)}
             for k in self.video_annotations:
                 self.window[self.annokey_to_elmkey[k]].update(self.video_annotations[k])
@@ -193,31 +223,62 @@ class ClipAnnotationGUI:
     def load_video_into_buffer(self):
         self.window["-VIDEO_SLIDER-"].update(disabled=True)
         self.video_cap = cv2.VideoCapture(self.values["-VIDEO_PATH-"])
-        self.video_buffer = []
-        self.video_buffer_idx = []
-        total_frame_count = self.video_cap.get(cv2.CAP_PROP_FRAME_COUNT)
-        frame_idx = 0
 
-        while self.video_cap.isOpened():
-            ret, frame = self.video_cap.read()
-            # if frame is read correctly ret is True
-            if not ret:
-                print("Can't receive frame (stream end?). Exiting ...")
-                break
-            self.video_buffer.append(cv2.imencode(".png", cv2.resize(frame, FRAME_DISPLAY_SIZE))[1].tobytes())
-            self.video_buffer_idx.append(frame_idx)
-            frame_idx += SAMPLE_EVERY_N_FRAME
-            if frame_idx < total_frame_count:
-                self.video_cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-            else:
-                break
-
-            self.window["-VIDEO_LOAD_PROGRESS-"].update(frame_idx / total_frame_count * 100)
+        self.video_res = (
+            self.video_cap.get(cv2.CAP_PROP_FRAME_WIDTH),
+            self.video_cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
+        )
+        self.window[self.annokey_to_elmkey["res_w"]].update(f"{self.video_res[0]}")
+        self.window[self.annokey_to_elmkey["res_h"]].update(f"{self.video_res[1]}")
         self.video_cap.release()
+
+        vr = decord.VideoReader(self.values["-VIDEO_PATH-"])
+        self.video_buffer_idx = list(range(0, len(vr), SAMPLE_EVERY_N_FRAME))
+        buffer = vr.get_batch(self.video_buffer_idx).asnumpy()
+
+        self.video_buffer = []
+        for i, frame in enumerate(buffer):
+            self.video_buffer.append(
+                cv2.imencode(
+                    ".png", 
+                    cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), FRAME_DISPLAY_SIZE)
+                )[1].tobytes()
+            )
+            self.window["-VIDEO_LOAD_PROGRESS-"].update(i / (len(buffer)-1) * 100)
+
+        # while self.video_cap.isOpened():
+        #     ret, frame = self.video_cap.read()
+        #     # if frame is read correctly ret is True
+        #     if not ret:
+        #         print("Can't receive frame (stream end?). Exiting ...")
+        #         break
+        #     self.video_buffer.append(cv2.imencode(".png", cv2.resize(frame, FRAME_DISPLAY_SIZE))[1].tobytes())
+        #     self.video_buffer_idx.append(frame_idx)
+        #     frame_idx += SAMPLE_EVERY_N_FRAME
+        #     if frame_idx < total_frame_count:
+        #         self.video_cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        #     else:
+        #         break
+
+        #     self.window["-VIDEO_LOAD_PROGRESS-"].update(frame_idx / total_frame_count * 100)
+        # 
+
         self.window["-VIDEO_LOAD_PROGRESS-"].update(100.0)
         self.window["-VIDEO_SLIDER-"].update(disabled=False, range=(0, len(self.video_buffer) - 1), value=0)
         self.window["-SLIDER_VALUE-"].update("0")
         self.window["-FRAME_DISPLAY-"].update(data=self.video_buffer[0])
+
+    def print_anno_log(self, message):
+        if "[INFO]" in message:
+            self.window["-ANNOTATION_LOG-"].print(message, colors=("blue", "white"))
+        elif "[SUCCESS]" in message:
+            self.window["-ANNOTATION_LOG-"].print(message, colors=("green", "white"))
+        elif "[WARN]" in message or "[WARNING]" in message:
+            self.window["-ANNOTATION_LOG-"].print(message, colors=("#f08832", "white"))
+        elif "[ERROR]" in message:
+            self.window["-ANNOTATION_LOG-"].print(message, colors=("red", "yellow"))
+        else:
+            self.window["-ANNOTATION_LOG-"].print(message, colors=("black", "white"))
 
     @property
     def file_browser(self):
@@ -261,9 +322,7 @@ class ClipAnnotationGUI:
                     expand_x=True,
                 )
             ],
-            [sg.In(default_text="", size=(40, 1), key="-VIDEO_INFO-", readonly=True, expand_x=True)][
-                sg.Image("", size=FRAME_DISPLAY_SIZE, key="-FRAME_DISPLAY-", background_color="green")
-            ],
+            [sg.Image("", size=FRAME_DISPLAY_SIZE, key="-FRAME_DISPLAY-", background_color="green")],
             [
                 sg.Slider(
                     range=(0, 1),
@@ -289,60 +348,95 @@ class ClipAnnotationGUI:
             ],
             [
                 sg.Frame(
-                    "file_name",
+                    "Annotation fields",
                     [
                         [
-                            sg.In(size=(15, 10), key="-ANNO_FILE_NAME-"),
-                        ]
-                    ],
-                ),
-                sg.Frame(
-                    "res_x",
-                    [
+                            sg.Frame(
+                                "file_name",
+                                [
+                                    [
+                                        sg.In(size=(15, 10), key="-ANNO_FILE_NAME-"),
+                                    ]
+                                ],
+                            ),
+                            sg.Frame(
+                                "celeb_name",
+                                [
+                                    [
+                                        sg.In(size=(15, 10), key="-ANNO_CELEB_NAME-"),
+                                    ]
+                                ],
+                            ),
+                            sg.Frame(
+                                "youtube_id",
+                                [
+                                    [
+                                        sg.In(size=(15, 10), key="-ANNO_YT_ID-"),
+                                    ]
+                                ],
+                            ),
+                            sg.Frame(
+                                "frame_range",
+                                [
+                                    [
+                                        sg.In(size=(15, 10), key="-ANNO_FRAME_RANGE-"),
+                                    ]
+                                ],
+                            ),
+                            sg.Frame(
+                                "res_w",
+                                [
+                                    [
+                                        sg.In(size=(15, 10), key="-ANNO_RES_W-"),
+                                    ]
+                                ],
+                            ),
+                            sg.Frame(
+                                "res_h",
+                                [
+                                    [
+                                        sg.In(size=(15, 10), key="-ANNO_RES_H-"),
+                                    ]
+                                ],
+                            ),
+                        ],
                         [
-                            sg.In(size=(15, 10), key="-ANNO_RES_X-"),
-                        ]
+                            sg.Frame(
+                                "is_watermarked",
+                                [
+                                    [
+                                        sg.In(size=(15, 10), key="-ANNO_WATERMARK-"),
+                                    ]
+                                ],
+                            ),
+                            sg.Frame(
+                                "is_pristine",
+                                [
+                                    [
+                                        sg.In(size=(15, 10), key="-ANNO_PRISTINE-"),
+                                    ]
+                                ],
+                            ),
+                            sg.Frame(
+                                "chop_begin",
+                                [
+                                    [
+                                        sg.In(size=(15, 10), key="-ANNO_CHOP_BEGIN-"),
+                                    ]
+                                ],
+                            ),
+                            sg.Frame(
+                                "chop_end",
+                                [
+                                    [
+                                        sg.In(size=(15, 10), key="-ANNO_CHOP_END-"),
+                                    ]
+                                ],
+                            ),
+                        ],
                     ],
-                ),
-                sg.Frame(
-                    "res_y",
-                    [
-                        [
-                            sg.In(size=(15, 10), key="-ANNO_RES_Y-"),
-                        ]
-                    ],
-                ),
-                sg.Frame(
-                    "is_watermarked",
-                    [
-                        [
-                            sg.In(size=(15, 10), key="-ANNO_WATERMARK-"),
-                        ]
-                    ],
-                ),
-                sg.Frame(
-                    "is_pristine",
-                    [
-                        [
-                            sg.In(size=(15, 10), key="-ANNO_PRISTINE-"),
-                        ]
-                    ],
-                ),
-                sg.Frame(
-                    "chop_begin",
-                    [
-                        [
-                            sg.In(size=(15, 10), key="-ANNO_CHOP_BEGIN-"),
-                        ]
-                    ],
-                ),
-                sg.Frame(
-                    "chop_end",
-                    [
-                        [
-                            sg.In(size=(15, 10), key="-ANNO_CHOP_END-"),
-                        ]
-                    ],
+                    size=(800, 120),
+                    expand_x=True,
                 ),
                 sg.Button("Submit", key="-ANNO_SUBMIT_BTN-"),
             ],
@@ -350,8 +444,11 @@ class ClipAnnotationGUI:
                 sg.Multiline(
                     size=(15, 5),
                     auto_size_text=True,
+                    font="arial 11 bold",
                     rstrip=True,
                     key="-ANNOTATION_LOG-",
+                    disabled=True,
+                    write_only=True,
                     expand_x=True,
                     expand_y=True,
                 )

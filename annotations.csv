@@ -1,2 +1,18 @@
-file_name,res_x,res_y,is_watermarked,is_pristine,chop_begin,chop_end
-ariana grande_7_nY3VsigLA_13200_13900.mp4,1,1222,1,1,1,1
+file_name,celeb_name,youtube_id,frame_range,res_w,res_h,is_watermarked,is_pristine,chop_begin,chop_end
+ariana grande_7_nY3VsigLA_13900_14600.mp4,ariana grande,7_nY3VsigLA,13900-14600,1920.0,1052.0,1,0,-1,-1
+ariana grande_a-lA620SomU_7175_7875.mp4,ariana grande,a-lA620SomU,7175-7875,1920.0,1080.0,0,1,-1,475
+ariana grande_a-lA620SomU_8275_8975.mp4,ariana grande,a-lA620SomU,8275-8975,1920.0,1080.0,0,0,-1,-1
+ariana grande_C0n_aqCcTVk_0_700.mp4,ariana grande,C0n_aqCcTVk,0-700,1920.0,1080.0,0,0,-1,-1
+ariana grande_C0n_aqCcTVk_100160_100860.mp4,ariana grande,C0n_aqCcTVk,100160-100860,1920.0,1080.0,0,0,55,145
+ariana grande_C0n_aqCcTVk_10070_10770.mp4,ariana grande,C0n_aqCcTVk,10070-10770,1920.0,1080.0,0,0,-1,-1
+ariana grande_C0n_aqCcTVk_100860_101560.mp4,ariana grande,C0n_aqCcTVk,100860-101560,1920.0,1080.0,0,0,-1,-1
+ariana grande_C0n_aqCcTVk_101560_102260.mp4,ariana grande,C0n_aqCcTVk,101560-102260,1920.0,1080.0,0,0,20,-1
+ariana grande_C0n_aqCcTVk_102260_102960.mp4,ariana grande,C0n_aqCcTVk,102260-102960,1920.0,1080.0,0,1,-1,275
+ariana grande_C0n_aqCcTVk_102960_103660.mp4,ariana grande,C0n_aqCcTVk,102960-103660,1920.0,1080.0,0,1,95,170
+ariana grande_C0n_aqCcTVk_103660_104360.mp4,ariana grande,C0n_aqCcTVk,103660-104360,1920.0,1080.0,0,0,-1,-1
+ariana grande_C0n_aqCcTVk_104360_105060.mp4,ariana grande,C0n_aqCcTVk,104360-105060,1920.0,1080.0,0,0,-1,-1
+ariana grande_C0n_aqCcTVk_105760_106460.mp4,ariana grande,C0n_aqCcTVk,105760-106460,1920.0,1080.0,0,0,230,-1
+ariana grande_C0n_aqCcTVk_105060_105760.mp4,ariana grande,C0n_aqCcTVk,105060-105760,1920.0,1080.0,0,0,-1,650
+ariana grande_C0n_aqCcTVk_106460_107160.mp4,ariana grande,C0n_aqCcTVk,106460-107160,1920.0,1080.0,0,0,-1,-1
+ariana grande_C0n_aqCcTVk_107160_107860.mp4,ariana grande,C0n_aqCcTVk,107160-107860,1920.0,1080.0,0,0,-1,-1
+ariana grande_C0n_aqCcTVk_10770_11470.mp4,ariana grande,C0n_aqCcTVk,10770-11470,1920.0,1080.0,0,0,420,-1
