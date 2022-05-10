@@ -5,10 +5,11 @@ import decord
 import pandas as pd
 import threading
 import PySimpleGUI as sg
+from PIL import Image, ImageTk
 
 VIDEO_EXTS = "mp4"
 FRAME_DISPLAY_SIZE = (480, 270)
-SAMPLE_EVERY_N_FRAME = 5
+SAMPLE_EVERY_N_FRAME = 3
 MAX_N_FRAMES_IN_BUFFER = 500
 
 
@@ -131,7 +132,7 @@ class ClipAnnotationGUI:
                 if self.video_cap is None or self.video_buffer is None or len(self.video_buffer) == 0:
                     continue
                 frame_idx = int(self.values["-VIDEO_SLIDER-"])
-                self.window["-FRAME_DISPLAY-"].update(data=self.video_buffer[frame_idx])
+                self.window["-FRAME_DISPLAY-"].update(data=ImageTk.PhotoImage(image=Image.fromarray(self.video_buffer[frame_idx])))
                 self.window["-SLIDER_VALUE-"].update(f"{self.video_buffer_idx[frame_idx]}")
 
             elif self.event == "-ANNOTATION_FILE_LOC-":
@@ -232,41 +233,14 @@ class ClipAnnotationGUI:
         self.window[self.annokey_to_elmkey["res_h"]].update(f"{self.video_res[1]}")
         self.video_cap.release()
 
-        vr = decord.VideoReader(self.values["-VIDEO_PATH-"])
+        vr = decord.VideoReader(self.values["-VIDEO_PATH-"], width=FRAME_DISPLAY_SIZE[0], height=FRAME_DISPLAY_SIZE[1])
         self.video_buffer_idx = list(range(0, len(vr), SAMPLE_EVERY_N_FRAME))
-        buffer = vr.get_batch(self.video_buffer_idx).asnumpy()
-
-        self.video_buffer = []
-        for i, frame in enumerate(buffer):
-            self.video_buffer.append(
-                cv2.imencode(
-                    ".png", 
-                    cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), FRAME_DISPLAY_SIZE)
-                )[1].tobytes()
-            )
-            self.window["-VIDEO_LOAD_PROGRESS-"].update(i / (len(buffer)-1) * 100)
-
-        # while self.video_cap.isOpened():
-        #     ret, frame = self.video_cap.read()
-        #     # if frame is read correctly ret is True
-        #     if not ret:
-        #         print("Can't receive frame (stream end?). Exiting ...")
-        #         break
-        #     self.video_buffer.append(cv2.imencode(".png", cv2.resize(frame, FRAME_DISPLAY_SIZE))[1].tobytes())
-        #     self.video_buffer_idx.append(frame_idx)
-        #     frame_idx += SAMPLE_EVERY_N_FRAME
-        #     if frame_idx < total_frame_count:
-        #         self.video_cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-        #     else:
-        #         break
-
-        #     self.window["-VIDEO_LOAD_PROGRESS-"].update(frame_idx / total_frame_count * 100)
-        # 
+        self.video_buffer = vr.get_batch(self.video_buffer_idx).asnumpy()
 
         self.window["-VIDEO_LOAD_PROGRESS-"].update(100.0)
         self.window["-VIDEO_SLIDER-"].update(disabled=False, range=(0, len(self.video_buffer) - 1), value=0)
         self.window["-SLIDER_VALUE-"].update("0")
-        self.window["-FRAME_DISPLAY-"].update(data=self.video_buffer[0])
+        self.window["-FRAME_DISPLAY-"].update(data=ImageTk.PhotoImage(image=Image.fromarray(self.video_buffer[0])))
 
     def print_anno_log(self, message):
         if "[INFO]" in message:
