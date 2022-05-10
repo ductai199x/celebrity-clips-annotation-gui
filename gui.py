@@ -160,6 +160,11 @@ class ClipAnnotationGUI:
                     self.annotation_file = pd.read_csv(fpath)
                 if self.values["-VIDEO_PATH-"] != "":
                     self.load_annotation_entry()
+                
+                for i, video_file_path in enumerate(self.window["-FILE_LIST-"].get_list_values()):
+                    if os.path.split(video_file_path)[1] in self.annotation_file["file_name"].to_list():
+                        self.window["-FILE_LIST-"].Widget.itemconfig(i, bg="green", fg="white")
+
 
             elif self.event == "-ANNO_SUBMIT_BTN-" and self.video_annotations is not None:
                 is_annotation_good = True
@@ -232,6 +237,7 @@ class ClipAnnotationGUI:
         self.window[self.annokey_to_elmkey["res_w"]].update(f"{self.video_res[0]}")
         self.window[self.annokey_to_elmkey["res_h"]].update(f"{self.video_res[1]}")
         self.video_cap.release()
+        self.window["-VIDEO_LOAD_PROGRESS-"].update(30.0)
 
         vr = decord.VideoReader(self.values["-VIDEO_PATH-"], width=FRAME_DISPLAY_SIZE[0], height=FRAME_DISPLAY_SIZE[1])
         self.video_buffer_idx = list(range(0, len(vr), SAMPLE_EVERY_N_FRAME))
