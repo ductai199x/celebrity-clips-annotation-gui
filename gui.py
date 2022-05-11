@@ -48,7 +48,6 @@ class ClipAnnotationGUI:
                     expand_y=True,
                 ),
             ],
-            [sg.HSeparator()],
             [
                 sg.Frame(
                     "Annotations",
@@ -110,7 +109,7 @@ class ClipAnnotationGUI:
                 try:
                     file_list = get_all_files(self.values["-FOLDER_LOCATION-"], suffix=VIDEO_EXTS)
                 except Exception as E:
-                    print(f"** Error {E} **")
+                    print(f"[Error]: {E}")
                     file_list = []
                 self.full_file_list = file_list
                 self.window["-FILE_LIST-"].update(self.full_file_list)
@@ -124,6 +123,7 @@ class ClipAnnotationGUI:
 
             elif self.event == "-FILE_LIST-" and len(self.values["-FILE_LIST-"]) > 0:
                 self.window["-VIDEO_PATH-"].update(self.values["-FILE_LIST-"][0])
+                self.window["-ANNO_SUBMIT_REPLACE-"].update(True)
                 if self.annotation_file is not None:
                     self.load_annotation_entry(self.values["-FILE_LIST-"][0])
 
@@ -204,6 +204,11 @@ class ClipAnnotationGUI:
                 if len(self.annos) > 0:
                     self.anno_idx = (self.anno_idx + 1) % len(self.annos)
                     self.populate_anno_to_gui()
+            
+            elif self.event == "-ANNO_RELOAD_BTN-" and self.annotation_file is not None:
+                for i, video_file_path in enumerate(self.window["-FILE_LIST-"].get_list_values()):
+                    if os.path.split(video_file_path)[1] in self.annotation_file["file_name"].to_list():
+                        self.window["-FILE_LIST-"].Widget.itemconfig(i, bg="green", fg="white")
 
         self.window.close()
 
@@ -306,7 +311,7 @@ class ClipAnnotationGUI:
                 sg.Listbox(
                     values=[],
                     enable_events=True,
-                    size=(50, 20),
+                    size=(50, 17),
                     auto_size_text=True,
                     key="-FILE_LIST-",
                     expand_x=True,
@@ -354,6 +359,7 @@ class ClipAnnotationGUI:
                 sg.Text("File", size=(5, 1)),
                 sg.In(size=(50, 10), enable_events=True, key="-ANNOTATION_FILE_LOC-", expand_x=True),
                 sg.FileBrowse(initial_folder="."),
+                sg.Button("Reload Anno File", key="-ANNO_RELOAD_BTN-")
             ],
             [
                 sg.Frame(
