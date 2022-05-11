@@ -2,6 +2,7 @@ import os
 import cv2
 import re
 import decord
+import pyperclip
 import pandas as pd
 import threading
 import PySimpleGUI as sg
@@ -68,6 +69,8 @@ class ClipAnnotationGUI:
             finalize=True,
             resizable=True,
         )
+
+        self.window["-FRAME_DISPLAY-"].bind("<Button-1>", "-COPY_FRAME_NUMBER-")
 
         self.full_file_list = []
         self.video_cap = None
@@ -209,6 +212,9 @@ class ClipAnnotationGUI:
                 for i, video_file_path in enumerate(self.window["-FILE_LIST-"].get_list_values()):
                     if os.path.split(video_file_path)[1] in self.annotation_file["file_name"].to_list():
                         self.window["-FILE_LIST-"].Widget.itemconfig(i, bg="green", fg="white")
+                
+            elif self.event == "-FRAME_DISPLAY--COPY_FRAME_NUMBER-":
+                pyperclip.copy(self.window["-SLIDER_VALUE-"].get())
 
         self.window.close()
 
