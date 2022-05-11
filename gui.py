@@ -179,7 +179,7 @@ class ClipAnnotationGUI:
                         is_annotation_good = False
                         break
                 if is_annotation_good:
-                    if print(self.values["-ANNO_SUBMIT_REPLACE-"]):
+                    if self.values["-ANNO_SUBMIT_REPLACE-"]:
                         self.annotation_file = pd.concat(
                             [
                                 self.annotation_file,
