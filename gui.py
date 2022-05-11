@@ -463,7 +463,7 @@ class ClipAnnotationGUI:
                 sg.Col(
                     [
                         [sg.Button("Submit", key="-ANNO_SUBMIT_BTN-")],
-                        [sg.Checkbox("Replace?", default=True, key="-ANNO_SUBMIT_REPLACE-")],
+                        [sg.Checkbox("Replace?", default=False, key="-ANNO_SUBMIT_REPLACE-")],
                         [sg.Button("Next entry of same video", key="-ANNO_NEXT_BTN-")],
                     ]
                 ),
