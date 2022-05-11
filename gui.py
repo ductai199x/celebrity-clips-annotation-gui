@@ -126,7 +126,7 @@ class ClipAnnotationGUI:
 
             elif self.event == "-FILE_LIST-" and len(self.values["-FILE_LIST-"]) > 0:
                 self.window["-VIDEO_PATH-"].update(self.values["-FILE_LIST-"][0])
-                self.window["-ANNO_SUBMIT_REPLACE-"].update(True)
+                self.window["-ANNO_SUBMIT_REPLACE-"].update(False)
                 if self.annotation_file is not None:
                     self.load_annotation_entry(self.values["-FILE_LIST-"][0])
 
@@ -184,9 +184,8 @@ class ClipAnnotationGUI:
                         break
                 if is_annotation_good:
                     if self.values["-ANNO_SUBMIT_REPLACE-"]:
-                        self.annotation_file.drop(
-                            self.annotation_file[self.annotation_file["file_name"] == self.current_anno["file_name"]].index,
-                            inplace=True
+                        self.annotation_file = self.annotation_file.drop(
+                            self.annotation_file[self.annotation_file["file_name"] == self.current_anno["file_name"]].index
                         )
                     self.annotation_file = pd.concat(
                         [
@@ -194,11 +193,11 @@ class ClipAnnotationGUI:
                             pd.DataFrame(
                                 [self.current_anno.values()], columns=list(self.current_anno.keys())
                             ),
-                        ]
-                    )
+                        ], 
+                    ).reset_index(drop=True)
                     # self.annotation_file = self.annotation_file.sort_values(by="file_name")
                     self.annotation_file.to_csv(self.values["-ANNOTATION_FILE_LOC-"], index=False)
-                    self.print_anno_log(f"[SUCCESS]: Entry submitted.")
+                    self.print_anno_log(f"[SUCCESS]: Entry {list(self.current_anno.values())} submitted.")
 
             elif self.event == "-ANNO_NEXT_BTN-" and self.annos is not None:
                 if len(self.annos) > 0:
