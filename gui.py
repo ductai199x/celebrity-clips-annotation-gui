@@ -184,23 +184,19 @@ class ClipAnnotationGUI:
                         break
                 if is_annotation_good:
                     if self.values["-ANNO_SUBMIT_REPLACE-"]:
-                        self.annotation_file = pd.concat(
-                            [
-                                self.annotation_file,
-                                pd.DataFrame(
-                                    [self.current_anno.values()], columns=list(self.current_anno.keys())
-                                ),
-                            ]
-                        ).drop_duplicates("file_name", keep="last")
-                    else:
-                        self.annotation_file = pd.concat(
-                            [
-                                self.annotation_file,
-                                pd.DataFrame(
-                                    [self.current_anno.values()], columns=list(self.current_anno.keys())
-                                ),
-                            ]
+                        self.annotation_file.drop(
+                            self.annotation_file[self.annotation_file["file_name"] == self.current_anno["file_name"]].index,
+                            inplace=True
                         )
+                    self.annotation_file = pd.concat(
+                        [
+                            self.annotation_file,
+                            pd.DataFrame(
+                                [self.current_anno.values()], columns=list(self.current_anno.keys())
+                            ),
+                        ]
+                    )
+                    self.annotation_file = self.annotation_file.sort_values(by="file_name")
                     self.annotation_file.to_csv(self.values["-ANNOTATION_FILE_LOC-"], index=False)
                     self.print_anno_log(f"[SUCCESS]: Entry submitted.")
 
