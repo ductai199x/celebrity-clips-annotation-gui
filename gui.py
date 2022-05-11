@@ -196,7 +196,7 @@ class ClipAnnotationGUI:
                             ),
                         ]
                     )
-                    self.annotation_file = self.annotation_file.sort_values(by="file_name")
+                    # self.annotation_file = self.annotation_file.sort_values(by="file_name")
                     self.annotation_file.to_csv(self.values["-ANNOTATION_FILE_LOC-"], index=False)
                     self.print_anno_log(f"[SUCCESS]: Entry submitted.")
 
