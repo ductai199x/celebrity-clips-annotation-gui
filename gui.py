@@ -90,7 +90,9 @@ class ClipAnnotationGUI:
             "chop_begin": "-ANNO_CHOP_BEGIN-",
             "chop_end": "-ANNO_CHOP_END-",
         }
-        self.video_annotations = None
+        self.annos = None
+        self.current_anno = None
+        self.anno_idx = 0
 
     def run(self):
         while True:
@@ -132,7 +134,9 @@ class ClipAnnotationGUI:
                 if self.video_cap is None or self.video_buffer is None or len(self.video_buffer) == 0:
                     continue
                 frame_idx = int(self.values["-VIDEO_SLIDER-"])
-                self.window["-FRAME_DISPLAY-"].update(data=ImageTk.PhotoImage(image=Image.fromarray(self.video_buffer[frame_idx])))
+                self.window["-FRAME_DISPLAY-"].update(
+                    data=ImageTk.PhotoImage(image=Image.fromarray(self.video_buffer[frame_idx]))
+                )
                 self.window["-SLIDER_VALUE-"].update(f"{self.video_buffer_idx[frame_idx]}")
 
             elif self.event == "-ANNOTATION_FILE_LOC-":
@@ -160,53 +164,67 @@ class ClipAnnotationGUI:
                     self.annotation_file = pd.read_csv(fpath)
                 if self.values["-VIDEO_PATH-"] != "":
                     self.load_annotation_entry()
-                
+
                 for i, video_file_path in enumerate(self.window["-FILE_LIST-"].get_list_values()):
                     if os.path.split(video_file_path)[1] in self.annotation_file["file_name"].to_list():
                         self.window["-FILE_LIST-"].Widget.itemconfig(i, bg="green", fg="white")
 
-
-            elif self.event == "-ANNO_SUBMIT_BTN-" and self.video_annotations is not None:
+            elif self.event == "-ANNO_SUBMIT_BTN-" and self.current_anno is not None:
                 is_annotation_good = True
-                for k in self.video_annotations:
+                for k in self.current_anno:
                     v = self.values[self.annokey_to_elmkey[k]]
-                    self.video_annotations[k] = v
+                    self.current_anno[k] = v
                     if v is None or v == "":
                         self.print_anno_log(f'[ERROR]: Key {k} cannot have None or "" value.')
                         is_annotation_good = False
                         break
                 if is_annotation_good:
-                    self.annotation_file = pd.concat(
-                        [
-                            self.annotation_file,
-                            pd.DataFrame(
-                                [self.video_annotations.values()], columns=list(self.video_annotations.keys())
-                            ),
-                        ]
-                    ).drop_duplicates("file_name", keep="last")
+                    if print(self.values["-ANNO_SUBMIT_REPLACE-"]):
+                        self.annotation_file = pd.concat(
+                            [
+                                self.annotation_file,
+                                pd.DataFrame(
+                                    [self.current_anno.values()], columns=list(self.current_anno.keys())
+                                ),
+                            ]
+                        ).drop_duplicates("file_name", keep="last")
+                    else:
+                        self.annotation_file = pd.concat(
+                            [
+                                self.annotation_file,
+                                pd.DataFrame(
+                                    [self.current_anno.values()], columns=list(self.current_anno.keys())
+                                ),
+                            ]
+                        )
                     self.annotation_file.to_csv(self.values["-ANNOTATION_FILE_LOC-"], index=False)
                     self.print_anno_log(f"[SUCCESS]: Entry submitted.")
+
+            elif self.event == "-ANNO_NEXT_BTN-" and self.annos is not None:
+                if len(self.annos) > 0:
+                    self.anno_idx = (self.anno_idx + 1) % len(self.annos)
+                    self.populate_anno_to_gui()
 
         self.window.close()
 
     def load_annotation_entry(self, path=None):
         path = path if path is not None else self.values["-VIDEO_PATH-"]
-        video_file_name = os.path.split(path)[1]
-        self.print_anno_log(f"[INFO]: Searching for the annotations for video {video_file_name}")
-        anno = self.annotation_file.loc[self.annotation_file["file_name"] == video_file_name]
+        self.video_file_name = os.path.split(path)[1]
+        self.print_anno_log(f"[INFO]: Searching for the annotations for video {self.video_file_name}")
+        self.annos = self.annotation_file.loc[self.annotation_file["file_name"] == self.video_file_name]
 
-        if anno is None or len(anno) == 0:
+        if self.annos is None or len(self.annos) == 0:
             self.print_anno_log(
-                f"[WARN]: Annotation for {video_file_name} does not exists. Submit a new entry."
+                f"[WARN]: Annotation for {self.video_file_name} does not exists. Submit a new entry."
             )
-            self.video_annotations = {k: "" for k in self.annokey_to_elmkey}
-            for k in self.video_annotations:
-                self.window[self.annokey_to_elmkey[k]].update(self.video_annotations[k])
+            self.current_anno = {k: "" for k in self.annokey_to_elmkey}
+            for k in self.current_anno:
+                self.window[self.annokey_to_elmkey[k]].update(self.current_anno[k])
 
             celeb_name, yt_id, frame_lobound, frame_upbound, _ = re.findall(
-                r"(^\D*)_(.*)_(\d*)_(\d*)(.mp4$)", video_file_name
+                r"(^\D*)_(.*)_(\d*)_(\d*)(.mp4$)", self.video_file_name
             )[0]
-            self.window[self.annokey_to_elmkey["file_name"]].update(video_file_name)
+            self.window[self.annokey_to_elmkey["file_name"]].update(self.video_file_name)
             self.window[self.annokey_to_elmkey["celeb_name"]].update(celeb_name)
             self.window[self.annokey_to_elmkey["youtube_id"]].update(yt_id)
             self.window[self.annokey_to_elmkey["frame_range"]].update(f"{frame_lobound}-{frame_upbound}")
@@ -220,14 +238,20 @@ class ClipAnnotationGUI:
             self.window[self.annokey_to_elmkey["chop_end"]].update("-1")
 
         else:
-            anno = list(anno.to_numpy()[0])
-            self.print_anno_log(f"[INFO]: Annotation for {video_file_name} exists. Entry Loaded.")
-            self.video_annotations = {k: v for k, v in zip(list(self.annokey_to_elmkey.keys()), anno)}
-            for k in self.video_annotations:
-                self.window[self.annokey_to_elmkey[k]].update(self.video_annotations[k])
+            self.populate_anno_to_gui()
+
+    def populate_anno_to_gui(self):
+        curr_anno_line = list(
+            self.annos.to_numpy()[self.anno_idx]
+        )  # extract line with idx=self.anno_idx from the DataFrame self.annos
+        self.print_anno_log(f"[INFO]: Annotation for {self.video_file_name} exists. Entry Loaded.")
+        self.current_anno = {k: v for k, v in zip(list(self.annokey_to_elmkey.keys()), curr_anno_line)}
+        for k in self.current_anno:
+            self.window[self.annokey_to_elmkey[k]].update(self.current_anno[k])
 
     def load_video_into_buffer(self):
         self.window["-VIDEO_SLIDER-"].update(disabled=True)
+        self.window["-LOAD_VIDEO_BTN-"].update(disabled=True)
         self.video_cap = cv2.VideoCapture(self.values["-VIDEO_PATH-"])
 
         self.video_res = (
@@ -239,14 +263,19 @@ class ClipAnnotationGUI:
         self.video_cap.release()
         self.window["-VIDEO_LOAD_PROGRESS-"].update(30.0)
 
-        vr = decord.VideoReader(self.values["-VIDEO_PATH-"], width=FRAME_DISPLAY_SIZE[0], height=FRAME_DISPLAY_SIZE[1])
+        vr = decord.VideoReader(
+            self.values["-VIDEO_PATH-"], width=FRAME_DISPLAY_SIZE[0], height=FRAME_DISPLAY_SIZE[1]
+        )
         self.video_buffer_idx = list(range(0, len(vr), SAMPLE_EVERY_N_FRAME))
         self.video_buffer = vr.get_batch(self.video_buffer_idx).asnumpy()
 
         self.window["-VIDEO_LOAD_PROGRESS-"].update(100.0)
+        self.window["-LOAD_VIDEO_BTN-"].update(disabled=False)
         self.window["-VIDEO_SLIDER-"].update(disabled=False, range=(0, len(self.video_buffer) - 1), value=0)
         self.window["-SLIDER_VALUE-"].update("0")
-        self.window["-FRAME_DISPLAY-"].update(data=ImageTk.PhotoImage(image=Image.fromarray(self.video_buffer[0])))
+        self.window["-FRAME_DISPLAY-"].update(
+            data=ImageTk.PhotoImage(image=Image.fromarray(self.video_buffer[0]))
+        )
 
     def print_anno_log(self, message):
         if "[INFO]" in message:
@@ -418,7 +447,13 @@ class ClipAnnotationGUI:
                     size=(800, 120),
                     expand_x=True,
                 ),
-                sg.Button("Submit", key="-ANNO_SUBMIT_BTN-"),
+                sg.Col(
+                    [
+                        [sg.Button("Submit", key="-ANNO_SUBMIT_BTN-")],
+                        [sg.Checkbox("Replace?", default=True, key="-ANNO_SUBMIT_REPLACE-")],
+                        [sg.Button("Next entry of same video", key="-ANNO_NEXT_BTN-")],
+                    ]
+                ),
             ],
             [
                 sg.Multiline(
