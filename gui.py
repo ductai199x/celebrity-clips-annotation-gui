@@ -141,7 +141,7 @@ class ClipAnnotationGUI:
                     data=ImageTk.PhotoImage(image=Image.fromarray(self.video_buffer[frame_idx]))
                 )
                 self.window["-SLIDER_VALUE-"].update(f"{self.video_buffer_idx[frame_idx]}")
-                pyperclip.copy(frame_idx)
+                pyperclip.copy(self.window["-SLIDER_VALUE-"].get())
 
             elif self.event == "-ANNOTATION_FILE_LOC-":
                 try:
