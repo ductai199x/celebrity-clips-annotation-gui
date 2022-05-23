@@ -11,6 +11,7 @@ bin/
 lib/python*
 etc/
 share/
+pyvenv.cfg
 
 # Custom
 *scratch*
