@@ -1,17 +1,31 @@
 import os
-import cv2
 import re
-import decord
-import pyperclip
-import pandas as pd
 import threading
+
+# don't move the order
+_ = 0
+import torch
+from retinaface.pre_trained_models import get_model
+
+_ = 0
+# don't move the order
+
+import cv2
+import decord
+import pandas as pd
+import pyperclip
 import PySimpleGUI as sg
 from PIL import Image, ImageTk
+import matplotlib.pyplot as plt 
+import numpy as np
+import io
 
 VIDEO_EXTS = "mp4"
 FRAME_DISPLAY_SIZE = (480, 270)
 SAMPLE_EVERY_N_FRAME = 3
 MAX_N_FRAMES_IN_BUFFER = 500
+# FACE_DETECTOR = get_model("resnet50_2020-07-20", max_size=2048, device="cuda")
+# FACE_DETECTOR.eval()
 
 
 def get_all_files(path, prefix="", suffix="", contains=("",), excludes=("",)):
@@ -39,6 +53,8 @@ class ClipAnnotationGUI:
                     element_justification="c",
                     key="-FILE_BROWSE_COL-",
                     pad=(10, 10),
+                    expand_y=True,
+                    expand_x=True,
                 ),
                 sg.Frame(
                     "Video Examiner",
@@ -47,7 +63,16 @@ class ClipAnnotationGUI:
                     key="-VIDEO_COL-",
                     pad=(10, 10),
                     expand_y=True,
+                    expand_x=True,
                 ),
+                # sg.Frame(
+                #     "Face Examiner",
+                #     self.face_examiner,
+                #     key="-FACE_COL-",
+                #     pad=(10, 10),
+                #     expand_y=True,
+                #     expand_x=True,
+                # ),
             ],
             [
                 sg.Frame(
@@ -185,7 +210,9 @@ class ClipAnnotationGUI:
                 if is_annotation_good:
                     if self.values["-ANNO_SUBMIT_REPLACE-"]:
                         self.annotation_file = self.annotation_file.drop(
-                            self.annotation_file[self.annotation_file["file_name"] == self.current_anno["file_name"]].index
+                            self.annotation_file[
+                                self.annotation_file["file_name"] == self.current_anno["file_name"]
+                            ].index
                         )
                     self.annotation_file = pd.concat(
                         [
@@ -193,7 +220,7 @@ class ClipAnnotationGUI:
                             pd.DataFrame(
                                 [self.current_anno.values()], columns=list(self.current_anno.keys())
                             ),
-                        ], 
+                        ],
                     ).reset_index(drop=True)
                     # self.annotation_file = self.annotation_file.sort_values(by="file_name")
                     self.annotation_file.to_csv(self.values["-ANNOTATION_FILE_LOC-"], index=False)
@@ -203,14 +230,29 @@ class ClipAnnotationGUI:
                 if len(self.annos) > 0:
                     self.anno_idx = (self.anno_idx + 1) % len(self.annos)
                     self.populate_anno_to_gui()
-            
+
             elif self.event == "-ANNO_RELOAD_BTN-" and self.annotation_file is not None:
                 for i, video_file_path in enumerate(self.window["-FILE_LIST-"].get_list_values()):
                     if os.path.split(video_file_path)[1] in self.annotation_file["file_name"].to_list():
                         self.window["-FILE_LIST-"].Widget.itemconfig(i, bg="green", fg="white")
-                
+
             elif self.event == "-FRAME_DISPLAY--COPY_FRAME_NUMBER-":
                 pyperclip.copy(self.window["-SLIDER_VALUE-"].get())
+
+            # elif self.event == "-EXTRACT_FACES_BTN-" and self.video_buffer is not None:
+            #     frame_idx = int(self.values["-VIDEO_SLIDER-"])
+            #     frame = self.video_buffer[frame_idx]
+                
+            #     annotations = FACE_DETECTOR.predict_jsons(frame)
+            #     bboxes = list(map(lambda a: list(map(int, a["bbox"])), annotations))
+            #     [self.window[f"-FACE_IMG_BTN_{i}-"].update(image_data=None) for i in range(9)]
+            #     for i, (x_min, y_min, x_max, y_max) in enumerate(bboxes):
+            #         face_region = Image.fromarray(frame[y_min:y_max, x_min:x_max, :])
+            #         bio = io.BytesIO()              # a binary memory resident stream
+            #         face_region.save(bio, format= 'PNG')    # save image as png to it
+            #         data = bio.getvalue()
+                    
+            #         self.window[f"-FACE_IMG_BTN_{i}-"].update(image_data=data)
 
         self.window.close()
 
@@ -313,10 +355,10 @@ class ClipAnnotationGUI:
                 sg.Listbox(
                     values=[],
                     enable_events=True,
-                    size=(50, 17),
                     auto_size_text=True,
                     key="-FILE_LIST-",
                     expand_x=True,
+                    expand_y=True,
                 )
             ],
         ]
@@ -338,10 +380,18 @@ class ClipAnnotationGUI:
                     expand_x=True,
                 )
             ],
-            [sg.Image("", size=FRAME_DISPLAY_SIZE, key="-FRAME_DISPLAY-", background_color="green")],
+            [
+                sg.Image(
+                    "",
+                    size=FRAME_DISPLAY_SIZE,
+                    key="-FRAME_DISPLAY-",
+                    background_color="green",
+                    expand_x=True,
+                    expand_y=True,
+                )
+            ],
             [
                 sg.Slider(
-                    range=(0, 1),
                     default_value=0,
                     size=(40, 15),
                     orientation="horizontal",
@@ -355,13 +405,26 @@ class ClipAnnotationGUI:
         ]
 
     @property
+    def face_examiner(self):
+        return [
+            [
+                sg.Button("Extract Faces", key="-EXTRACT_FACES_BTN-"),
+            ],
+            *[
+                [sg.Button("", border_width=0, size=(4, 4), key=f"-FACE_IMG_BTN_{i+j*3}-") for i in range(3)] 
+                for j in range(3)
+            ]
+
+        ]
+
+    @property
     def annotating_ui(self):
         return [
             [
                 sg.Text("File", size=(5, 1)),
                 sg.In(size=(50, 10), enable_events=True, key="-ANNOTATION_FILE_LOC-", expand_x=True),
                 sg.FileBrowse(initial_folder="."),
-                sg.Button("Reload Anno File", key="-ANNO_RELOAD_BTN-")
+                sg.Button("Reload Anno File", key="-ANNO_RELOAD_BTN-"),
             ],
             [
                 sg.Frame(
