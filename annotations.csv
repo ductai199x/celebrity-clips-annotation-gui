@@ -1,10 +1,8 @@
 file_name,celeb_name,youtube_id,frame_range,res_w,res_h,is_watermarked,is_pristine,chop_begin,chop_end
 ariana grande_7_nY3VsigLA_15330_16030.mp4,ariana grande,7_nY3VsigLA,15330-16030,1920.0,1052.0,1,0,132,441
 ariana grande_7_nY3VsigLA_15330_16030.mp4,ariana grande,7_nY3VsigLA,15330-16030,1920.0,1052.0,1,0,-1,81
-ariana grande_C0n_aqCcTVk_100160_100860.mp4,ariana grande,C0n_aqCcTVk,100160-100860,1920.0,1080.0,0,0,55,145
 ariana grande_C0n_aqCcTVk_10070_10770.mp4,ariana grande,C0n_aqCcTVk,10070-10770,1920.0,1080.0,0,0,-1,-1
 ariana grande_C0n_aqCcTVk_100860_101560.mp4,ariana grande,C0n_aqCcTVk,100860-101560,1920.0,1080.0,0,0,-1,-1
-ariana grande_C0n_aqCcTVk_101560_102260.mp4,ariana grande,C0n_aqCcTVk,101560-102260,1920.0,1080.0,0,0,20,-1
 ariana grande_C0n_aqCcTVk_102260_102960.mp4,ariana grande,C0n_aqCcTVk,102260-102960,1920.0,1080.0,0,1,-1,275
 ariana grande_C0n_aqCcTVk_102960_103660.mp4,ariana grande,C0n_aqCcTVk,102960-103660,1920.0,1080.0,0,1,95,170
 ariana grande_C0n_aqCcTVk_103660_104360.mp4,ariana grande,C0n_aqCcTVk,103660-104360,1920.0,1080.0,0,0,-1,-1
@@ -454,3 +452,6 @@ billie eilish_PbKYAks6044_10200_10900.mp4,billie eilish,PbKYAks6044,10200-10900,
 billie eilish_PbKYAks6044_10896_11596.mp4,billie eilish,PbKYAks6044,10896-11596,1920.0,1080.0,0,1,222,615
 billie eilish_PbKYAks6044_11712_12412.mp4,billie eilish,PbKYAks6044,11712-12412,1920.0,1080.0,0,1,-1,585
 billie eilish_PbKYAks6044_11712_12412.mp4,billie eilish,PbKYAks6044,11712-12412,1920.0,1080.0,0,1,633,-1
+ariana grande_C0n_aqCcTVk_100160_100860.mp4,ariana grande,C0n_aqCcTVk,100160-100860,1920.0,1080.0,0,1,55,145
+ariana grande_C0n_aqCcTVk_101560_102260.mp4,ariana grande,C0n_aqCcTVk,101560-102260,1920.0,1080.0,0,1,20,228
+ariana grande_C0n_aqCcTVk_101560_102260.mp4,ariana grande,C0n_aqCcTVk,101560-102260,1920.0,1080.0,0,1,363,-1
