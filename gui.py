@@ -5,7 +5,7 @@ import threading
 # don't move the order
 _ = 0
 import torch
-from retinaface.pre_trained_models import get_model
+# from retinaface.pre_trained_models import get_model
 
 _ = 0
 # don't move the order
@@ -96,6 +96,8 @@ class ClipAnnotationGUI:
         )
 
         self.window["-FRAME_DISPLAY-"].bind("<Button-1>", "-COPY_FRAME_NUMBER-")
+        self.window["-ANNO_CHOP_BEGIN-"].bind("<Button-1>", "-CLEAR_FIELD-")
+        self.window["-ANNO_CHOP_END-"].bind("<Button-1>", "-CLEAR_FIELD-")
 
         self.full_file_list = []
         self.video_cap = None
@@ -129,7 +131,7 @@ class ClipAnnotationGUI:
                 break
 
             # run with a timeout so that current location can be updated
-            self.event, self.values = self.window.read(timeout=50)
+            self.event, self.values = self.window.read()
             if self.event == sg.WIN_CLOSED:
                 break
 
@@ -139,14 +141,14 @@ class ClipAnnotationGUI:
                 except Exception as E:
                     print(f"[Error]: {E}")
                     file_list = []
-                self.full_file_list = file_list
+                self.full_file_list = sorted(file_list)
                 self.window["-FILE_LIST-"].update(self.full_file_list)
 
             elif self.event == "-FILTER_FILE_LIST-" or self.event == "-FILTER_FILE_LIST_BTN-":
                 filter_str = self.values["-FILTER_FILE_LIST-"]
                 if filter_str is None:
                     filter_str = ""
-                filtered_list = list(filter(lambda s: filter_str in s, self.full_file_list))
+                filtered_list = sorted(list(filter(lambda s: filter_str in s, self.full_file_list)))
                 self.window["-FILE_LIST-"].update(filtered_list)
 
             elif self.event == "-FILE_LIST-" and len(self.values["-FILE_LIST-"]) > 0:
@@ -236,6 +238,12 @@ class ClipAnnotationGUI:
                     if os.path.split(video_file_path)[1] in self.annotation_file["file_name"].to_list():
                         self.window["-FILE_LIST-"].Widget.itemconfig(i, bg="green", fg="white")
 
+            elif self.event == "-ANNO_CHOP_BEGIN--CLEAR_FIELD-":
+                self.window["-ANNO_CHOP_BEGIN-"].update("")
+
+            elif self.event == "-ANNO_CHOP_END--CLEAR_FIELD-":
+                self.window["-ANNO_CHOP_END-"].update("")
+
             elif self.event == "-FRAME_DISPLAY--COPY_FRAME_NUMBER-":
                 pyperclip.copy(self.window["-SLIDER_VALUE-"].get())
 
@@ -271,7 +279,7 @@ class ClipAnnotationGUI:
                 self.window[self.annokey_to_elmkey[k]].update(self.current_anno[k])
 
             celeb_name, yt_id, frame_lobound, frame_upbound, _ = re.findall(
-                r"(^\D*)_(.*)_(\d*)_(\d*)(.mp4$)", self.video_file_name
+                r"([^0-9_]+)_(.+)_(\d+)_(\d+)(.mp4$)", self.video_file_name
             )[0]
             self.window[self.annokey_to_elmkey["file_name"]].update(self.video_file_name)
             self.window[self.annokey_to_elmkey["celeb_name"]].update(celeb_name)
@@ -501,7 +509,7 @@ class ClipAnnotationGUI:
                                 "chop_begin",
                                 [
                                     [
-                                        sg.In(size=(15, 10), key="-ANNO_CHOP_BEGIN-"),
+                                        sg.In(size=(15, 10), key="-ANNO_CHOP_BEGIN-", enable_events=True),
                                     ]
                                 ],
                             ),
@@ -509,7 +517,7 @@ class ClipAnnotationGUI:
                                 "chop_end",
                                 [
                                     [
-                                        sg.In(size=(15, 10), key="-ANNO_CHOP_END-"),
+                                        sg.In(size=(15, 10), key="-ANNO_CHOP_END-", enable_events=True),
                                     ]
                                 ],
                             ),

@@ -83,7 +83,7 @@ PyYAML==6.0
 pyzmq==23.0.0
 qudida==0.0.4
 requests==2.27.1
-retinaface-pytorch==0.0.8
+# retinaface-pytorch==0.0.8
 scikit-image==0.19.2
 scikit-learn==1.1.1
 scipy==1.8.1
