@@ -234,8 +234,32 @@ class ClipAnnotationGUI:
                     self.populate_anno_to_gui()
 
             elif self.event == "-ANNO_RELOAD_BTN-" and self.annotation_file is not None:
+                self.annotation_file = pd.read_csv(self.values["-ANNOTATION_FILE_LOC-"])
+                for celeb in self.annotation_file["celeb_name"].unique():
+                    celeb_annotations = self.annotation_file.query(f"`celeb_name` == '{celeb}'")
+
+                    total_num_pristine_frames = 0
+                    total_num_not_pristine_frames = 0
+                    for _, anno in celeb_annotations.iterrows():
+                        frame_range = anno["frame_range"]
+                        frame_begin, frame_end = map(int, frame_range.split("-"))
+                        chop_begin, chop_end = int(anno["chop_begin"]), int(anno["chop_end"])
+                        if chop_begin == -1:
+                            chop_begin = 0
+                        if chop_end == -1:
+                            chop_end = (frame_end - frame_begin)
+                        chop_range = chop_end - chop_begin
+
+                        if anno["is_pristine"] == 1:
+                            total_num_pristine_frames += chop_range
+                        else:
+                            total_num_not_pristine_frames += chop_range
+
+                    print(celeb, total_num_pristine_frames, total_num_not_pristine_frames)
+
+
                 for i, video_file_path in enumerate(self.window["-FILE_LIST-"].get_list_values()):
-                    if os.path.split(video_file_path)[1] in self.annotation_file["file_name"].to_list():
+                    if os.path.split(video_file_path)[1] in list(self.annotation_file["file_name"].unique()):
                         self.window["-FILE_LIST-"].Widget.itemconfig(i, bg="green", fg="white")
 
             elif self.event == "-ANNO_CHOP_BEGIN--CLEAR_FIELD-":
@@ -298,9 +322,10 @@ class ClipAnnotationGUI:
             self.populate_anno_to_gui()
 
     def populate_anno_to_gui(self):
-        curr_anno_line = list(
-            self.annos.to_numpy()[self.anno_idx]
-        )  # extract line with idx=self.anno_idx from the DataFrame self.annos
+        anno_lines = list(self.annos.to_numpy())
+        if self.anno_idx >= len(anno_lines):
+            self.anno_idx = 0
+        curr_anno_line = anno_lines[self.anno_idx] # extract line with idx=self.anno_idx from self.annos 
         self.print_anno_log(f"[INFO]: Annotation for {self.video_file_name} exists. Entry Loaded.")
         self.current_anno = {k: v for k, v in zip(list(self.annokey_to_elmkey.keys()), curr_anno_line)}
         for k in self.current_anno:
